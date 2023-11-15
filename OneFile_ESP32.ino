@@ -4,9 +4,6 @@
 #define Sending_record_Led 14  // recording finished, sending
 #define waitTime 10000         // after this time ESP will fall asleep
 
-#define WIFI_SSID "Galaxy A526AD7"
-#define WIFI_PASSWORD "pqmm9039"
-
 #define I2S_SD GPIO_NUM_32
 #define I2S_WS GPIO_NUM_25
 #define I2S_SCK GPIO_NUM_33
@@ -25,6 +22,8 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <FS.h>
+#include "network_param.h"
+#include "GoogleAPI.h"
 
 File file;
 const char filename[] = "/recording.wav";
@@ -84,7 +83,6 @@ void setup() {
         break;
       } else {
         Serial.println("Left to Sleep: " + String(Count--));
-        //Count--;
         customDelay(1000);
       }
     } while (Count != 0);
@@ -201,8 +199,13 @@ void uploadFileGoogle() {
     return;
   }
 
+  CloudSpeechClient* cloudSpeechClient = new CloudSpeechClient(USE_APIKEY);
+  cloudSpeechClient->Transcribe(file);
+  delete cloudSpeechClient;
+  
   //sending
   Serial.println("File is sended Nahui !");
+
   // Читаем данные из файла и передаем их в I2S-интерфейс
   /* while (file.available()) {
     size_t available_bytes = file.available();
