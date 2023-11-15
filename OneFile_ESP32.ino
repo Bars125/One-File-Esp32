@@ -84,23 +84,23 @@ void setup() {
         i2s_adc();
         break;
       } else {
-        Serial.println("Left to Sleep: " + String(Count));
-        Count--;
+        Serial.println("Left to Sleep: " + String(Count--));
+        //Count--;
         customDelay(1000);
       }
-    } while (millis() - startTime < 10000);
+    } while (Count != 0);
 
     if (isWIFIConnected && isRecorded) {
       digitalWrite(Sending_record_Led, 1);
       uploadFileGoogle();
       break;
     } else {
-      Serial.println("CHAO-1!");
+      Serial.println("CHAO-1 (when there was no record)!");
       customDelay(500);
       start_deep_sleep();
     }
   }
-  Serial.println("CHAO-2!");
+  Serial.println("CHAO-2 (main cycle, after recording)!");
   customDelay(500);
   start_deep_sleep();
 }
@@ -237,6 +237,12 @@ void connectToWiFi() {
       Serial.println(WiFi.localIP());
       break;
     }
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("CHAO-3 (Wifi-func)!");
+    customDelay(500);
+    start_deep_sleep();
   }
 
   /*isWIFIConnected = false;
