@@ -68,8 +68,7 @@ void setup() {
   SPIFFSInit();  // initialize the SPI Flash File System
   i2s_Init();    // initialize the I2S interface
 
-  unsigned int startTime = millis();
-  int Count = 10;
+  int Count = 10; // кол-во секунд ожидания при бездействии (нет нажатия кнопки)
 
   // main cycle: recoding after pressing the button; quit when wifi conn-ion is lost;
   while (1) {
@@ -96,12 +95,10 @@ void setup() {
       break;
     } else {
       Serial.println("CHAO-1 (when there was no record)!");
-      customDelay(500);
       start_deep_sleep();
     }
   }
   Serial.println("CHAO-2 (main cycle, after recording)!");
-  customDelay(500);
   start_deep_sleep();
 }
 
@@ -123,7 +120,7 @@ void print_wakeup_touchpad() {
 void start_deep_sleep() {
   Serial.println("");
   Serial.println("Going to sleep now");
-  customDelay(100);
+  customDelay(500);
   esp_deep_sleep_start();
 }
 
@@ -241,7 +238,6 @@ void connectToWiFi() {
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("CHAO-3 (Wifi-func)!");
-    customDelay(500);
     start_deep_sleep();
   }
 
