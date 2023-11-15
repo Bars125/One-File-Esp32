@@ -1,6 +1,8 @@
-#define record_Pin 35      // record audio while holding a button
-#define THRESHOLD 40       // Greater the value, more the sensitivity (wake-up Pin)
-#define wifi_state_Pin 26  // wifi status LED
+#define record_Pin 27          // record audio while holding a button
+#define THRESHOLD 40           // Greater the value, more the sensitivity (wake-up Pin)
+#define wifi_state_Led 26      // wifi status LED
+#define Sending_record_Led 14  // recording finished, sending
+#define waitTime 10000         // after this time ESP will fall asleep
 
 #define WIFI_SSID "Galaxy A526AD7"
 #define WIFI_PASSWORD "pqmm9039"
@@ -27,8 +29,11 @@
 File file;
 const char filename[] = "/recording.wav";
 const int headerSize = 44;
+bool isWIFIConnected = false;
+bool isRecorded = false;
 
-//prototypes
+//func prototypes
+
 void SPIFFSInit();
 void wavHeader(byte* header, int wavSize);
 void listSPIFFS();
@@ -37,44 +42,65 @@ void print_wakeup_touchpad();
 void start_deep_sleep();
 void i2s_Init();
 void i2s_adc_data_scale(uint8_t* d_buff, uint8_t* s_buff, uint32_t len);
-void i2s_adc(void* arg);
+void i2s_adc();
 void uploadFileGoogle();
-void connectToWiFi(void* pvParameter);
+void connectToWiFi();
 
 void setup() {
 
   // Setting up the Serial Monitor
   Serial.begin(115200);
-  customDelay(1000);
+  customDelay(500);
+  Serial.println("Serial Monitor is ON");
 
   // Led indication setup
-  pinMode(wifi_state_Pin, OUTPUT);
+  pinMode(wifi_state_Led, OUTPUT);
+  pinMode(Sending_record_Led, OUTPUT);
   pinMode(record_Pin, INPUT_PULLUP);
-  digitalWrite(wifi_state_Pin, 0);  // wifi status LED make sure it's 0
-
+  digitalWrite(wifi_state_Led, 0);  // wifi status LED make sure it's 0
+  digitalWrite(Sending_record_Led, 0);
   // Wake up settings
   print_wakeup_touchpad();
   touchSleepWakeUpEnable(T3, THRESHOLD);  // Setup sleep, wakeup on Touch Pad 3 (GPIO15)
 
-  //Programm  starts Here
+  // ===== Programm  starts Here =====
 
   SPIFFSInit();  // initialize the SPI Flash File System
   i2s_Init();    // initialize the I2S interface
 
-  xTaskCreate(connectToWiFi, "connectToWiFi", 4096, NULL, 0, NULL);
+  unsigned int startTime = millis();
+  int Count = 10;
 
   // main cycle: recoding after pressing the button; quit when wifi conn-ion is lost;
   while (1) {
-    //Recording
-    if (digitalRead(record_Pin) == LOW) {
-      xTaskCreate(&i2s_adc, "i2s_adc", 2048, NULL, 1, NULL);  //loading the recorded file here with uploadFileGoogle() func
-    }
+
     if (WiFi.status() != WL_CONNECTED) {
-      digitalWrite(wifi_state_Pin, 0);
-      break;
+      connectToWiFi();
     }
-    customDelay(500);
+
+    do {
+      if (digitalRead(record_Pin) == LOW) {  // when the button was clicked
+        Serial.println("Record Button's Pressed!");
+        i2s_adc();
+        break;
+      } else {
+        Serial.println("Left to Sleep: " + String(Count));
+        Count--;
+        customDelay(1000);
+      }
+    } while (millis() - startTime < 10000);
+
+    if (isWIFIConnected && isRecorded) {
+      digitalWrite(Sending_record_Led, 1);
+      uploadFileGoogle();
+      break;
+    } else {
+      Serial.println("CHAO-1!");
+      customDelay(500);
+      start_deep_sleep();
+    }
   }
+  Serial.println("CHAO-2!");
   customDelay(500);
   start_deep_sleep();
 }
@@ -97,6 +123,7 @@ void print_wakeup_touchpad() {
 void start_deep_sleep() {
   Serial.println("");
   Serial.println("Going to sleep now");
+  customDelay(100);
   esp_deep_sleep_start();
 }
 
@@ -135,7 +162,7 @@ void i2s_adc_data_scale(uint8_t* d_buff, uint8_t* s_buff, uint32_t len) {
   }
 }
 
-void i2s_adc(void* arg) {
+void i2s_adc() {
 
   int i2s_read_len = I2S_READ_LEN;
   int flash_wr_size = 0;
@@ -145,20 +172,21 @@ void i2s_adc(void* arg) {
   uint8_t* flash_write_buff = (uint8_t*)calloc(i2s_read_len, sizeof(char));
 
   i2s_read(I2S_PORT, (void*)i2s_read_buff, i2s_read_len, &bytes_read, portMAX_DELAY);
-  i2s_read(I2S_PORT, (void*)i2s_read_buff, i2s_read_len, &bytes_read, portMAX_DELAY);
+  //i2s_read(I2S_PORT, (void*)i2s_read_buff, i2s_read_len, &bytes_read, portMAX_DELAY);
 
   Serial.println(" *** Recording Start *** ");
+
   while (flash_wr_size < FLASH_RECORD_SIZE) {
     //read data from I2S bus, in this case, from ADC.
     i2s_read(I2S_PORT, (void*)i2s_read_buff, i2s_read_len, &bytes_read, portMAX_DELAY);
-    //example_disp_buf((uint8_t*) i2s_read_buff, 64);
     //save original data from I2S(ADC) into flash.
     i2s_adc_data_scale(flash_write_buff, (uint8_t*)i2s_read_buff, i2s_read_len);
     file.write((const byte*)flash_write_buff, i2s_read_len);
     flash_wr_size += i2s_read_len;
-    ets_printf("Sound recording %u%%\n", flash_wr_size * 100 / FLASH_RECORD_SIZE);
-    ets_printf("Never Used Stack Size: %u\n", uxTaskGetStackHighWaterMark(NULL));
+    Serial.printf("Sound recording %u%%\n", (flash_wr_size * 100 / FLASH_RECORD_SIZE));
+    //Serial.printf("Never Used Stack Size: %u\n", uxTaskGetStackHighWaterMark(NULL));
   }
+  isRecorded = true;
   file.close();
 
   free(i2s_read_buff);
@@ -167,12 +195,6 @@ void i2s_adc(void* arg) {
   flash_write_buff = NULL;
 
   listSPIFFS();
-
-  //if(isWIFIConnected){
-  uploadFileGoogle();  // загружаем звуковой файл на АПИ конвертора
-  //}
-
-  vTaskDelete(NULL);
 }
 
 void uploadFileGoogle() {
@@ -183,8 +205,9 @@ void uploadFileGoogle() {
   }
 
   //sending
+  Serial.println("File is sended Nahui !");
   // Читаем данные из файла и передаем их в I2S-интерфейс
-  while (file.available()) {
+  /* while (file.available()) {
     size_t available_bytes = file.available();
     size_t bytes_to_read = available_bytes > 1024 ? 1024 : available_bytes;  // Читаем не более 1024 байт за раз
 
@@ -194,31 +217,46 @@ void uploadFileGoogle() {
     if (bytes_read > 0) {
       i2s_write(I2S_PORT, buffer, bytes_read, portMAX_DELAY);
     }
-  }
+  }*/
 
   file.close();
 }
 
-void connectToWiFi(void* pvParameter) {
+void connectToWiFi() {
+  isWIFIConnected = false;
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   for (byte i; i < 10; i++) {
     Serial.println("Connecting to WiFi...");
     customDelay(1000);
     if (WiFi.status() == WL_CONNECTED) {
-      digitalWrite(wifi_state_Pin, 1);
+      isWIFIConnected = true;
+      digitalWrite(wifi_state_Led, 1);
       Serial.println("Connected to Wi-Fi");
       Serial.print("IP Address: ");
       Serial.println(WiFi.localIP());
       break;
     }
   }
+
+  /*isWIFIConnected = false;
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    customDelay(500);
+    Serial.println("Connecting to WiFi...");
+  }
+
+  isWIFIConnected = true;
+  digitalWrite(wifi_state_Led, 1);
+  Serial.println("Connected to Wi-Fi");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());*/
 }
 
 void SPIFFSInit() {
   if (!SPIFFS.begin(true)) {
     Serial.println("SPIFFS initialisation failed!");
-    while (1) yield();
   }
 
   SPIFFS.remove(filename);
@@ -312,7 +350,8 @@ void listSPIFFS() {
       Serial.print("  " + fileName);
       // File path can be 31 characters maximum in SPIFFS
       int spaces = 33 - fileName.length();  // Tabulate nicely
-      if (spaces < 1) spaces = 1;
+      if (spaces < 1)
+        spaces = 1;
       while (spaces--) Serial.print(" ");
       String fileSize = (String)file.size();
       spaces = 10 - fileSize.length();  // Tabulate nicely
