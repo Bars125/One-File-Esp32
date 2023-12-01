@@ -5,6 +5,9 @@
 #define WIFI_PASSWORD "mgoz9173"
 
 #include <Arduino.h>
+
+const String ApiKey = "";
+
 // Getting Access Token : 
 // At first, you should get service account key (JSON file).
 // Type below command in Google Cloud Shell to get AccessToken: 

@@ -4,8 +4,6 @@
 #include <ArduinoJson.h>
 
 const char* server = "speech.googleapis.com";
-const String ApiKey = "AIzaSyDBIvgVOw4uf_Q2YrH_QfgG27pDdXPWaiU";
-
 // To get the certificate for your region run:
 // openssl s_client -showcerts -connect speech.googleapis.com:443
 const char* root_cert =
@@ -106,6 +104,8 @@ void CloudSpeechClient::Transcribe(File file) {
   Serial.println("");
 
   // Read and display the response
+  //client.available() function checks if there is data available to be read from the client. 
+  //It returns the number of bytes available. If no data is available, it returns 0
   String response;
   while (client.available()) {
     char temp = client.read();
