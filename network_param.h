@@ -1,13 +1,10 @@
 #ifndef _NETWORK_PARAM_H
 #define _NETWORK_PARAM_H
 
-#define WIFI_SSID "Galaxy A526AD7"
-#define WIFI_PASSWORD "pqmm9039"
+#define WIFI_SSID "Yurii A52"
+#define WIFI_PASSWORD "mgoz9173"
 
 #include <Arduino.h>
-
-
-
 // Getting Access Token : 
 // At first, you should get service account key (JSON file).
 // Type below command in Google Cloud Shell to get AccessToken: 

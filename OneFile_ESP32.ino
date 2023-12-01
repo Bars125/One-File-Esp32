@@ -23,7 +23,7 @@
 #include <SPIFFS.h>
 #include <FS.h>
 #include "network_param.h"
-#include "GoogleAPI.h"
+#include "CloudSpeechClient.h"
 
 File file;
 const char filename[] = "/recording.wav";
@@ -204,7 +204,7 @@ void uploadFileGoogle() {
   delete cloudSpeechClient;
   
   //sending
-  Serial.println("File is sended Nahui !");
+  Serial.println("Response is received.");
 
   // Читаем данные из файла и передаем их в I2S-интерфейс
   /* while (file.available()) {
