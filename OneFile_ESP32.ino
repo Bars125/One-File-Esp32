@@ -16,9 +16,6 @@
 #define I2S_CHANNEL_NUM (1)
 #define FLASH_RECORD_SIZE (I2S_CHANNEL_NUM * I2S_SAMPLE_RATE * I2S_SAMPLE_BITS / 8 * RECORD_TIME)
 
-#define WIFI_SSID "Yurii A52"
-#define WIFI_PASSWORD "mgoz9173"
-
 //libraries
 #include <Arduino.h>
 #include <driver/i2s.h>
@@ -30,7 +27,7 @@
 #include <HTTPClient.h>
 #include <Base64.h>
 #include "network_param.h"
-#include "CloudSpeechClient.h"
+//#include "CloudSpeechClient.h"
 
 //global variables
 File file;
@@ -39,7 +36,6 @@ const int headerSize = 44;
 bool isWIFIConnected = false;
 bool isRecorded = false;
 
-const char* googleCloudApiKey = "AIzaSyAvJ2BsNH7ULB1DO3_lmFBhJj90yADtY6Y";
 const char* googleCloudEndpoint = "https://speech.googleapis.com/v1/speech:recognize";
 
 const char* root_cert =
