@@ -12,7 +12,7 @@
 #define I2S_SAMPLE_RATE (16000)
 #define I2S_SAMPLE_BITS (16)
 #define I2S_READ_LEN (16 * 1024)
-#define RECORD_TIME (5)  //Seconds
+#define RECORD_TIME (5)    // N seconds the recording lasts
 #define I2S_CHANNEL_NUM (1)
 #define FLASH_RECORD_SIZE (I2S_CHANNEL_NUM * I2S_SAMPLE_RATE * I2S_SAMPLE_BITS / 8 * RECORD_TIME)
 
@@ -90,6 +90,8 @@ void i2s_adc_data_scale(uint8_t* d_buff, uint8_t* s_buff, uint32_t len);
 void i2s_adc();
 void uploadFileGoogle();
 void connectToWiFi();
+String callGoogleSpeechApi(String base64Audio);
+String encodeBase64(File file);
 
 //main function
 void setup() {
