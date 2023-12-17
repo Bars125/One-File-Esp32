@@ -1,4 +1,4 @@
-#ifndef _CLOUDSPEECHCLIENT_H
+/*#ifndef _CLOUDSPEECHCLIENT_H
 #define _CLOUDSPEECHCLIENT_H
 
 #include <WiFiClientSecure.h>
@@ -21,3 +21,5 @@ public:
 };
 
 #endif // _CLOUDSPEECHCLIENT_H
+
+*/

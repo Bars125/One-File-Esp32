@@ -1,10 +1,11 @@
-#include "network_param.h"
+/*#include "network_param.h"
 #include "CloudSpeechClient.h"
 #include <base64.h>
 #include <ArduinoJson.h>
+#include <HTTPClient.h>
 
 const char* server = "speech.googleapis.com";
-// To get the certificate for your region run:
+// Certificate for specific region, run:
 // openssl s_client -showcerts -connect speech.googleapis.com:443
 const char* root_cert =
   "-----BEGIN CERTIFICATE-----\n"
@@ -43,7 +44,7 @@ const char* root_cert =
 CloudSpeechClient::CloudSpeechClient(Authentication authentication) {
 
   this->authentication = authentication;
-  Serial.println("48 Authentication CloudSpeechClient");
+  Serial.println("47 Authentication CloudSpeechClient");
   while (WiFi.status() != WL_CONNECTED) {
     Serial.println("50 CloudSpeechClient: Wifi isn't connected.");
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -55,8 +56,7 @@ CloudSpeechClient::CloudSpeechClient(Authentication authentication) {
     Serial.println("Connection failed!");
 }
 
-String ans;
-
+//String ans;
 CloudSpeechClient::~CloudSpeechClient() {
   Serial.println("63 Delete CloudSpeechClient");
   client.stop();
@@ -67,11 +67,11 @@ void CloudSpeechClient::PrintHttpBody2(File file) {
   const int bufferSize = 512;
   byte buffer[bufferSize];
   size_t bytesRead;
-  Serial.println("72 CloudSpeechClient PrintHttpBody2");
+  Serial.println("70 CloudSpeechClient PrintHttpBody2");
 
   // Read and encode the file content in chunks
   while (file.available() && client.connected()) {
-    //Serial.println("76 CloudSpeechClient. File Avaliable");  /// ????????????
+    //Serial.println("74 CloudSpeechClient. File Avaliable");  /// ????????????
     bytesRead = file.read(buffer, bufferSize);
     if (bytesRead > 0) {
       String enc = base64::encode(buffer, bytesRead);
@@ -82,10 +82,10 @@ void CloudSpeechClient::PrintHttpBody2(File file) {
 }
 
 void CloudSpeechClient::Transcribe(File file) {
-  Serial.println("87 CloudSpeechClient - Transcribe");
+  Serial.println("85 CloudSpeechClient - Transcribe");
   String HttpBody1 = "{\"config\":{\"encoding\":\"LINEAR16\",\"sampleRateHertz\":16000,\"languageCode\":\"en-IN\"},\"audio\":{\"content\":\"";
   String HttpBody3 = "\"}}\r\n\r\n";
-  int httpBody2Length = file.size() * 2;  // 4/3 is from base64 encoding
+  int httpBody2Length = file.size() * 4 / 3;  // 4/3 is from base64 encoding
   String ContentLength = String(HttpBody1.length() + httpBody2Length + HttpBody3.length());
   String HttpHeader;
 
@@ -96,15 +96,15 @@ void CloudSpeechClient::Transcribe(File file) {
   PrintHttpBody2(file);
   client.print(HttpBody3);
 
-  // Wait for response
-  while (!client.available()) {
+  // Wait for response N seconds
+  unsigned long timeout = millis();
+  while (!client.available() && (millis() - timeout < 10000)) {
     Serial.print(".");
     delay(200);
   }
   Serial.println("");
 
-  // Read and display the response
-  //client.available() function checks if there is data available to be read from the client. 
+  //client.available() function checks if there is data available to be read from the client.
   //It returns the number of bytes available. If no data is available, it returns 0
   String response;
   while (client.available()) {
@@ -150,5 +150,6 @@ void CloudSpeechClient::Transcribe(File file) {
   ans = My_Answer.substring(postion);
   Serial.print("Json data - ");
   Serial.print(ans);
-  */
-}
+  
+}*/
+

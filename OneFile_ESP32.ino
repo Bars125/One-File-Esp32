@@ -1,8 +1,8 @@
-#define record_Pin 27          // record audio while holding a button
-#define THRESHOLD 40           // Greater the value, more the sensitivity (wake-up Pin)
-#define wifi_state_Led 26      // wifi status LED
-#define Sending_record_Led 14  // recording finished, sending
-#define waitTime 10000         // after this time ESP will fall asleep
+#define Record_Button 27   // record audio while holding a button
+#define THRESHOLD 40       // Greater the value, more the sensitivity (wake-up Pin)
+#define wifi_state_Led 26  // wifi status LED
+#define Record_Led 14      // recording finished, sending
+#define waitTime 10000     // after this time ESP will fall asleep
 
 #define I2S_SD GPIO_NUM_32
 #define I2S_WS GPIO_NUM_25
@@ -16,23 +16,69 @@
 #define I2S_CHANNEL_NUM (1)
 #define FLASH_RECORD_SIZE (I2S_CHANNEL_NUM * I2S_SAMPLE_RATE * I2S_SAMPLE_BITS / 8 * RECORD_TIME)
 
+#define WIFI_SSID "Yurii A52"
+#define WIFI_PASSWORD "mgoz9173"
+
+//libraries
 #include <Arduino.h>
 #include <driver/i2s.h>
 #include <Wire.h>
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <FS.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <Base64.h>
 #include "network_param.h"
 #include "CloudSpeechClient.h"
 
+//global variables
 File file;
 const char filename[] = "/recording.wav";
 const int headerSize = 44;
 bool isWIFIConnected = false;
 bool isRecorded = false;
 
-//func prototypes
+const char* googleCloudApiKey = "AIzaSyAvJ2BsNH7ULB1DO3_lmFBhJj90yADtY6Y";
+const char* googleCloudEndpoint = "https://speech.googleapis.com/v1/speech:recognize";
 
+const char* root_cert =
+  "-----BEGIN CERTIFICATE-----\n"
+  "MIIFljCCA36gAwIBAgINAgO8U1lrNMcY9QFQZjANBgkqhkiG9w0BAQsFADBHMQsw\n"
+  "CQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\n"
+  "MBIGA1UEAxMLR1RTIFJvb3QgUjEwHhcNMjAwODEzMDAwMDQyWhcNMjcwOTMwMDAw\n"
+  "MDQyWjBGMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZp\n"
+  "Y2VzIExMQzETMBEGA1UEAxMKR1RTIENBIDFDMzCCASIwDQYJKoZIhvcNAQEBBQAD\n"
+  "ggEPADCCAQoCggEBAPWI3+dijB43+DdCkH9sh9D7ZYIl/ejLa6T/belaI+KZ9hzp\n"
+  "kgOZE3wJCor6QtZeViSqejOEH9Hpabu5dOxXTGZok3c3VVP+ORBNtzS7XyV3NzsX\n"
+  "lOo85Z3VvMO0Q+sup0fvsEQRY9i0QYXdQTBIkxu/t/bgRQIh4JZCF8/ZK2VWNAcm\n"
+  "BA2o/X3KLu/qSHw3TT8An4Pf73WELnlXXPxXbhqW//yMmqaZviXZf5YsBvcRKgKA\n"
+  "gOtjGDxQSYflispfGStZloEAoPtR28p3CwvJlk/vcEnHXG0g/Zm0tOLKLnf9LdwL\n"
+  "tmsTDIwZKxeWmLnwi/agJ7u2441Rj72ux5uxiZ0CAwEAAaOCAYAwggF8MA4GA1Ud\n"
+  "DwEB/wQEAwIBhjAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0T\n"
+  "AQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQUinR/r4XN7pXNPZzQ4kYU83E1HScwHwYD\n"
+  "VR0jBBgwFoAU5K8rJnEaK0gnhS9SZizv8IkTcT4waAYIKwYBBQUHAQEEXDBaMCYG\n"
+  "CCsGAQUFBzABhhpodHRwOi8vb2NzcC5wa2kuZ29vZy9ndHNyMTAwBggrBgEFBQcw\n"
+  "AoYkaHR0cDovL3BraS5nb29nL3JlcG8vY2VydHMvZ3RzcjEuZGVyMDQGA1UdHwQt\n"
+  "MCswKaAnoCWGI2h0dHA6Ly9jcmwucGtpLmdvb2cvZ3RzcjEvZ3RzcjEuY3JsMFcG\n"
+  "A1UdIARQME4wOAYKKwYBBAHWeQIFAzAqMCgGCCsGAQUFBwIBFhxodHRwczovL3Br\n"
+  "aS5nb29nL3JlcG9zaXRvcnkvMAgGBmeBDAECATAIBgZngQwBAgIwDQYJKoZIhvcN\n"
+  "AQELBQADggIBAIl9rCBcDDy+mqhXlRu0rvqrpXJxtDaV/d9AEQNMwkYUuxQkq/BQ\n"
+  "cSLbrcRuf8/xam/IgxvYzolfh2yHuKkMo5uhYpSTld9brmYZCwKWnvy15xBpPnrL\n"
+  "RklfRuFBsdeYTWU0AIAaP0+fbH9JAIFTQaSSIYKCGvGjRFsqUBITTcFTNvNCCK9U\n"
+  "+o53UxtkOCcXCb1YyRt8OS1b887U7ZfbFAO/CVMkH8IMBHmYJvJh8VNS/UKMG2Yr\n"
+  "PxWhu//2m+OBmgEGcYk1KCTd4b3rGS3hSMs9WYNRtHTGnXzGsYZbr8w0xNPM1IER\n"
+  "lQCh9BIiAfq0g3GvjLeMcySsN1PCAJA/Ef5c7TaUEDu9Ka7ixzpiO2xj2YC/WXGs\n"
+  "Yye5TBeg2vZzFb8q3o/zpWwygTMD0IZRcZk0upONXbVRWPeyk+gB9lm+cZv9TSjO\n"
+  "z23HFtz30dZGm6fKa+l3D/2gthsjgx0QGtkJAITgRNOidSOzNIb2ILCkXhAd4FJG\n"
+  "AJ2xDx8hcFH1mt0G/FX0Kw4zd8NLQsLxdxP8c4CU6x+7Nz/OAipmsHMdMqUybDKw\n"
+  "juDEI/9bfU1lcKwrmz3O2+BtjjKAvpafkmO8l7tdufThcV4q5O8DIrGKZTqPwJNl\n"
+  "1IXNDw9bg1kWRxYtnCQ6yICmJhSFm/Y3m6xv+cXDBlHz4n/FsRC6UfTd\n"
+  "-----END CERTIFICATE-----\n";
+
+
+
+//func prototypes
 void SPIFFSInit();
 void wavHeader(byte* header, int wavSize);
 void listSPIFFS();
@@ -45,6 +91,7 @@ void i2s_adc();
 void uploadFileGoogle();
 void connectToWiFi();
 
+//main function
 void setup() {
 
   // Setting up the Serial Monitor
@@ -54,20 +101,22 @@ void setup() {
 
   // Led indication setup
   pinMode(wifi_state_Led, OUTPUT);
-  pinMode(Sending_record_Led, OUTPUT);
-  pinMode(record_Pin, INPUT_PULLUP);
+  pinMode(Record_Led, OUTPUT);
+  pinMode(Record_Button, INPUT_PULLUP);
   digitalWrite(wifi_state_Led, 0);  // wifi status LED make sure it's 0
-  digitalWrite(Sending_record_Led, 0);
+  digitalWrite(Record_Led, 0);
+
   // Wake up settings
   print_wakeup_touchpad();
   touchSleepWakeUpEnable(T3, THRESHOLD);  // Setup sleep, wakeup on Touch Pad 3 (GPIO15)
+
+  //variables
+  int Count = 10;  // кол-во секунд ожидания при бездействии (нет нажатия кнопки)
 
   // ===== Programm  starts Here =====
 
   SPIFFSInit();  // initialize the SPI Flash File System
   i2s_Init();    // initialize the I2S interface
-
-  int Count = 10; // кол-во секунд ожидания при бездействии (нет нажатия кнопки)
 
   // main cycle: recoding after pressing the button; quit when wifi conn-ion is lost;
   while (1) {
@@ -77,8 +126,9 @@ void setup() {
     }
 
     do {
-      if (digitalRead(record_Pin) == LOW) {  // when the button was clicked
+      if (digitalRead(Record_Button) == LOW) {  // when the button was clicked
         Serial.println("Record Button's Pressed!");
+        digitalWrite(Record_Led, 1);
         i2s_adc();
         break;
       } else {
@@ -88,7 +138,7 @@ void setup() {
     } while (Count != 0);
 
     if (isWIFIConnected && isRecorded) {
-      digitalWrite(Sending_record_Led, 1);
+      digitalWrite(Record_Led, 0);
       uploadFileGoogle();
       break;
     } else {
@@ -195,16 +245,33 @@ void i2s_adc() {
 void uploadFileGoogle() {
   file = SPIFFS.open(filename, FILE_READ);
   if (!file) {
-    Serial.println("FILE IS NOT AVAILABLE!");
+    Serial.println("Failed to open the file.");
     return;
   }
 
-  CloudSpeechClient* cloudSpeechClient = new CloudSpeechClient(USE_APIKEY);
-  cloudSpeechClient->Transcribe(file);
-  delete cloudSpeechClient;
-  
-  //sending
-  Serial.println("Response is received.");
+  // Read file content
+  String base64Audio = encodeBase64(file);
+  file.close();
+
+  // Check if base64 encoding was successful
+  if (base64Audio.isEmpty()) {
+    Serial.println("Failed to encode audio to base64");
+    return;
+  }
+
+  // Call Google Cloud Speech-to-Text API
+  String transcription = callGoogleSpeechApi(base64Audio);
+
+  // Check if API call was successful
+  if (transcription.isEmpty()) {
+    Serial.println("Failed to get transcription from Google Cloud API");
+    return;
+  }
+  Serial.println("Transcription: " + transcription);
+
+  //CloudSpeechClient* cloudSpeechClient = new CloudSpeechClient(USE_APIKEY);
+  //cloudSpeechClient->Transcribe(file);
+  //delete cloudSpeechClient;
 
   // Читаем данные из файла и передаем их в I2S-интерфейс
   /* while (file.available()) {
@@ -218,8 +285,57 @@ void uploadFileGoogle() {
       i2s_write(I2S_PORT, buffer, bytes_read, portMAX_DELAY);
     }
   }*/
+}
 
-  file.close();
+String encodeBase64(File file) {
+
+  const int bufferSize = 512;
+  byte buffer[bufferSize];
+  size_t bytesRead;
+  String encoded;
+
+  while (file.available()) {
+    //Serial.println("74 CloudSpeechClient. File Avaliable");  /// ????????????
+    bytesRead = file.read(buffer, bufferSize);
+    if (bytesRead > 0) {
+      encoded = base64::encode(buffer, bytesRead);
+      encoded.replace("\n", "");  // delete last "\n"
+    }
+  }
+  return encoded;
+}
+
+String callGoogleSpeechApi(String base64Audio) {
+  WiFiClientSecure client;
+  client.setCACert(root_cert);
+  while (!client.connect("speech.googleapis.com", 443)) {
+    Serial.println("ERR 443");
+    customDelay(500);
+  }
+
+  String requestBody = "{\"config\": {\"encoding\":\"FLAC\",\"sampleRateHertz\":16000,\"languageCode\":\"en-US\"},\"audio\":{\"content\":\"" + base64Audio + "\"}}";
+  String request = "POST " + String(googleCloudEndpoint) + "?key=" + String(googleCloudApiKey) + " HTTP/1.1\r\n" + "Host: speech.googleapis.com\r\n" + "Content-Type: application/json\r\n" + "Content-Length: " + String(requestBody.length()) + "\r\n\r\n" + requestBody;
+
+  client.print(request);
+
+  String response = "";
+  unsigned long timeout = millis();
+  while (client.connected()) {
+    if (client.available()) {
+      char temp = client.read();
+      response += temp;
+      timeout = millis(); // Reset the timeout counter since we received data
+    } else if (millis() - timeout > 5000) {
+      Serial.println("Timeout occurred while waiting for response");
+      client.stop();
+      return "";
+    }
+  }
+
+  if (response.length() == 0) {
+    Serial.println("Failed to get response from Google Cloud API");
+  }
+  return response;
 }
 
 void connectToWiFi() {
