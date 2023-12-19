@@ -12,7 +12,7 @@
 #define I2S_SAMPLE_RATE (16000)
 #define I2S_SAMPLE_BITS (16)
 #define I2S_READ_LEN (16 * 1024)
-#define RECORD_TIME (5)    // N seconds the recording lasts
+#define RECORD_TIME (5)  // N seconds the recording lasts
 #define I2S_CHANNEL_NUM (1)
 #define FLASH_RECORD_SIZE (I2S_CHANNEL_NUM * I2S_SAMPLE_RATE * I2S_SAMPLE_BITS / 8 * RECORD_TIME)
 
@@ -71,8 +71,6 @@ const char* root_cert =
   "juDEI/9bfU1lcKwrmz3O2+BtjjKAvpafkmO8l7tdufThcV4q5O8DIrGKZTqPwJNl\n"
   "1IXNDw9bg1kWRxYtnCQ6yICmJhSFm/Y3m6xv+cXDBlHz4n/FsRC6UfTd\n"
   "-----END CERTIFICATE-----\n";
-
-
 
 //func prototypes
 void SPIFFSInit();
@@ -251,7 +249,10 @@ void uploadFileGoogle() {
   String base64Audio = encodeBase64(file);
   file.close();
 
-  // Check if base64 encoding was successful
+  //TEST
+  //Serial.println(base64Audio);
+
+  //Check if base64 encoding was successful
   if (base64Audio.isEmpty()) {
     Serial.println("Failed to encode audio to base64");
     return;
@@ -286,34 +287,46 @@ void uploadFileGoogle() {
 }
 
 String encodeBase64(File file) {
-
   const int bufferSize = 512;
   byte buffer[bufferSize];
   size_t bytesRead;
   String encoded;
 
   while (file.available()) {
-    //Serial.println("74 CloudSpeechClient. File Avaliable");  /// ????????????
     bytesRead = file.read(buffer, bufferSize);
     if (bytesRead > 0) {
-      encoded = base64::encode(buffer, bytesRead);
-      encoded.replace("\n", "");  // delete last "\n"
+      String chunk = base64::encode(buffer, bytesRead);
+      chunk.replace("\n", "");  // delete last "\n"
+      encoded += chunk;         // concatenate the chunks
     }
   }
   return encoded;
 }
 
-String callGoogleSpeechApi(String base64Audio) {
+String callGoogleSpeechApi(String base64Audio) {  //(String base64Audio)
+
   WiFiClientSecure client;
   client.setCACert(root_cert);
-  while (!client.connect("speech.googleapis.com", 443)) {
-    Serial.println("ERR 443");
-    customDelay(500);
+
+  // Ensure that your ESP32 can resolve the domain name "speech.googleapis.com" to an IP address
+  IPAddress ip;
+  if (WiFi.hostByName("speech.googleapis.com", ip)) {
+    Serial.println("Host-IP address: " + ip.toString());
+  } else {
+    Serial.println("DNS resolution failed");
   }
 
-  String requestBody = "{\"config\": {\"encoding\":\"FLAC\",\"sampleRateHertz\":16000,\"languageCode\":\"en-US\"},\"audio\":{\"content\":\"" + base64Audio + "\"}}";
-  String request = "POST " + String(googleCloudEndpoint) + "?key=" + String(googleCloudApiKey) + " HTTP/1.1\r\n" + "Host: speech.googleapis.com\r\n" + "Content-Type: application/json\r\n" + "Content-Length: " + String(requestBody.length()) + "\r\n\r\n" + requestBody;
 
+  while (!client.connect("speech.googleapis.com", 443)) {
+    Serial.println("443");
+    customDelay(1000);
+  }
+
+  String requestBody = "{\"config\": {\"encoding\":\"LINEAR16\",\"sampleRateHertz\":16000,\"languageCode\":\"en-US\"},\"audio\":{\"content\":\"" + base64Audio + "\"}}";
+  String contentLength = String(requestBody.length());
+  String request = "POST " + String(googleCloudEndpoint) + "?key=" + String(googleCloudApiKey) + " HTTP/1.1\r\n" + "Host: speech.googleapis.com\r\n" + "Content-Type: application/json\r\n" + "Content-Length: " + contentLength + "\r\n\r\n" + requestBody;
+
+  Serial.println(request);
   client.print(request);
 
   String response = "";
@@ -322,8 +335,8 @@ String callGoogleSpeechApi(String base64Audio) {
     if (client.available()) {
       char temp = client.read();
       response += temp;
-      timeout = millis(); // Reset the timeout counter since we received data
-    } else if (millis() - timeout > 5000) {
+      timeout = millis();  // Reset the timeout counter since we received data
+    } else if (millis() - timeout > 10000) {
       Serial.println("Timeout occurred while waiting for response");
       client.stop();
       return "";
@@ -484,7 +497,7 @@ void listSPIFFS() {
 
   Serial.println(FPSTR(line));
   Serial.println();
-  customDelay(1000);
+  customDelay(100);
 }
 
 void loop() {
