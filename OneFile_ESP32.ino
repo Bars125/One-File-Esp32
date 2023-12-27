@@ -1,7 +1,7 @@
 #define Record_Button 27   // record audio while holding a button
-#define THRESHOLD 40       // Greater the value, more the sensitivity (wake-up Pin)
-#define wifi_state_Led 26  // wifi status LED
-#define Record_Led 14      // recording finished, sending
+#define THRESHOLD 40       // Greater the value, more the sensitivity on the wake-up Pin
+#define wifi_state_Led 26  // Wifi status LED
+#define Record_Led 14      // Recording audio
 #define waitTime 10000     // after this time ESP will fall asleep
 
 #define I2S_SD GPIO_NUM_32
@@ -35,42 +35,6 @@ const char filename[] = "/recording.wav";
 const int headerSize = 44;
 bool isWIFIConnected = false;
 bool isRecorded = false;
-
-const char* googleCloudEndpoint = "https://speech.googleapis.com/v1/speech:recognize";
-
-const char* root_cert =
-  "-----BEGIN CERTIFICATE-----\n"
-  "MIIFljCCA36gAwIBAgINAgO8U1lrNMcY9QFQZjANBgkqhkiG9w0BAQsFADBHMQsw\n"
-  "CQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\n"
-  "MBIGA1UEAxMLR1RTIFJvb3QgUjEwHhcNMjAwODEzMDAwMDQyWhcNMjcwOTMwMDAw\n"
-  "MDQyWjBGMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZp\n"
-  "Y2VzIExMQzETMBEGA1UEAxMKR1RTIENBIDFDMzCCASIwDQYJKoZIhvcNAQEBBQAD\n"
-  "ggEPADCCAQoCggEBAPWI3+dijB43+DdCkH9sh9D7ZYIl/ejLa6T/belaI+KZ9hzp\n"
-  "kgOZE3wJCor6QtZeViSqejOEH9Hpabu5dOxXTGZok3c3VVP+ORBNtzS7XyV3NzsX\n"
-  "lOo85Z3VvMO0Q+sup0fvsEQRY9i0QYXdQTBIkxu/t/bgRQIh4JZCF8/ZK2VWNAcm\n"
-  "BA2o/X3KLu/qSHw3TT8An4Pf73WELnlXXPxXbhqW//yMmqaZviXZf5YsBvcRKgKA\n"
-  "gOtjGDxQSYflispfGStZloEAoPtR28p3CwvJlk/vcEnHXG0g/Zm0tOLKLnf9LdwL\n"
-  "tmsTDIwZKxeWmLnwi/agJ7u2441Rj72ux5uxiZ0CAwEAAaOCAYAwggF8MA4GA1Ud\n"
-  "DwEB/wQEAwIBhjAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0T\n"
-  "AQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQUinR/r4XN7pXNPZzQ4kYU83E1HScwHwYD\n"
-  "VR0jBBgwFoAU5K8rJnEaK0gnhS9SZizv8IkTcT4waAYIKwYBBQUHAQEEXDBaMCYG\n"
-  "CCsGAQUFBzABhhpodHRwOi8vb2NzcC5wa2kuZ29vZy9ndHNyMTAwBggrBgEFBQcw\n"
-  "AoYkaHR0cDovL3BraS5nb29nL3JlcG8vY2VydHMvZ3RzcjEuZGVyMDQGA1UdHwQt\n"
-  "MCswKaAnoCWGI2h0dHA6Ly9jcmwucGtpLmdvb2cvZ3RzcjEvZ3RzcjEuY3JsMFcG\n"
-  "A1UdIARQME4wOAYKKwYBBAHWeQIFAzAqMCgGCCsGAQUFBwIBFhxodHRwczovL3Br\n"
-  "aS5nb29nL3JlcG9zaXRvcnkvMAgGBmeBDAECATAIBgZngQwBAgIwDQYJKoZIhvcN\n"
-  "AQELBQADggIBAIl9rCBcDDy+mqhXlRu0rvqrpXJxtDaV/d9AEQNMwkYUuxQkq/BQ\n"
-  "cSLbrcRuf8/xam/IgxvYzolfh2yHuKkMo5uhYpSTld9brmYZCwKWnvy15xBpPnrL\n"
-  "RklfRuFBsdeYTWU0AIAaP0+fbH9JAIFTQaSSIYKCGvGjRFsqUBITTcFTNvNCCK9U\n"
-  "+o53UxtkOCcXCb1YyRt8OS1b887U7ZfbFAO/CVMkH8IMBHmYJvJh8VNS/UKMG2Yr\n"
-  "PxWhu//2m+OBmgEGcYk1KCTd4b3rGS3hSMs9WYNRtHTGnXzGsYZbr8w0xNPM1IER\n"
-  "lQCh9BIiAfq0g3GvjLeMcySsN1PCAJA/Ef5c7TaUEDu9Ka7ixzpiO2xj2YC/WXGs\n"
-  "Yye5TBeg2vZzFb8q3o/zpWwygTMD0IZRcZk0upONXbVRWPeyk+gB9lm+cZv9TSjO\n"
-  "z23HFtz30dZGm6fKa+l3D/2gthsjgx0QGtkJAITgRNOidSOzNIb2ILCkXhAd4FJG\n"
-  "AJ2xDx8hcFH1mt0G/FX0Kw4zd8NLQsLxdxP8c4CU6x+7Nz/OAipmsHMdMqUybDKw\n"
-  "juDEI/9bfU1lcKwrmz3O2+BtjjKAvpafkmO8l7tdufThcV4q5O8DIrGKZTqPwJNl\n"
-  "1IXNDw9bg1kWRxYtnCQ6yICmJhSFm/Y3m6xv+cXDBlHz4n/FsRC6UfTd\n"
-  "-----END CERTIFICATE-----\n";
 
 //func prototypes
 void SPIFFSInit();
@@ -303,22 +267,21 @@ String encodeBase64(File file) {
   return encoded;
 }
 
-String callGoogleSpeechApi(String base64Audio) {  //(String base64Audio)
+String callGoogleSpeechApi(String base64Audio) {
 
   WiFiClientSecure client;
   client.setCACert(root_cert);
-
-  // Ensure that your ESP32 can resolve the domain name "speech.googleapis.com" to an IP address
+  // const char* googleCloudEndpoint = "https://speech.googleapis.com/v1/speech:recognize";
+  // Ensure that ESP32 can resolve the domain name "speech.googleapis.com" to an IP address
   IPAddress ip;
-  if (WiFi.hostByName("speech.googleapis.com", ip)) {
+  if (WiFi.hostByName(server, ip)) {
     Serial.println("Host-IP address: " + ip.toString());
   } else {
     Serial.println("DNS resolution failed");
   }
 
-
-  while (!client.connect("speech.googleapis.com", 443)) {
-    Serial.println("443");
+  while (!client.connect(server, 443)) {
+    Serial.println("Couldn't connect to 443 port... ");
     customDelay(1000);
   }
 
@@ -345,7 +308,10 @@ String callGoogleSpeechApi(String base64Audio) {  //(String base64Audio)
 
   if (response.length() == 0) {
     Serial.println("Failed to get response from Google Cloud API");
+  } else {
+    Serial.println("Response length: " + String(response.length()));
   }
+
   return response;
 }
 
@@ -359,7 +325,8 @@ void connectToWiFi() {
     if (WiFi.status() == WL_CONNECTED) {
       isWIFIConnected = true;
       digitalWrite(wifi_state_Led, 1);
-      Serial.println("Connected to Wi-Fi");
+      Serial.print("Connected to WiFi network: ");
+      Serial.println(WiFi.SSID());
       Serial.print("IP Address: ");
       Serial.println(WiFi.localIP());
       break;
