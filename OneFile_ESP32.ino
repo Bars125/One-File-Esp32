@@ -18,16 +18,13 @@
 
 //libraries
 #include <Arduino.h>
-#include <driver/i2s.h>
-#include <Wire.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <driver/i2s.h>
 #include <SPIFFS.h>
 #include <FS.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
 #include <Base64.h>
 #include "network_param.h"
-//#include "CloudSpeechClient.h"
 
 //global variables
 File file;
@@ -268,30 +265,51 @@ String encodeBase64(File file) {
 }
 
 String callGoogleSpeechApi(String base64Audio) {
+  // Ensure WiFi is connected
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi not connected");
+    return "";
+  }
 
+  // DNS resolution
+  IPAddress ip;
+  if (!WiFi.hostByName(server, ip)) {
+    Serial.println("DNS resolution failed");
+    return "";
+  }
+  Serial.println("Host-IP address: " + ip.toString());
+
+  // SSL/TLS setup
   WiFiClientSecure client;
   client.setCACert(root_cert);
-  // const char* googleCloudEndpoint = "https://speech.googleapis.com/v1/speech:recognize";
-  // Ensure that ESP32 can resolve the domain name "speech.googleapis.com" to an IP address
-  IPAddress ip;
-  if (WiFi.hostByName(server, ip)) {
-    Serial.println("Host-IP address: " + ip.toString());
-  } else {
-    Serial.println("DNS resolution failed");
-  }
 
+  // Attempt to connect to Google Cloud API
+  Serial.println("Attempting to connect to Google Cloud API");
+  int connectAttempts = 0;
   while (!client.connect(server, 443)) {
+
     Serial.println("Couldn't connect to 443 port... ");
     customDelay(1000);
-  }
+    connectAttempts++;
 
+    if (connectAttempts > 5) {
+      Serial.println("Failed to connect after multiple attempts");
+      return "";
+    }
+  }
+  Serial.println("Connected to Google Cloud API");
+
+  // Prepare the request
   String requestBody = "{\"config\": {\"encoding\":\"LINEAR16\",\"sampleRateHertz\":16000,\"languageCode\":\"en-US\"},\"audio\":{\"content\":\"" + base64Audio + "\"}}";
   String contentLength = String(requestBody.length());
-  String request = "POST " + String(googleCloudEndpoint) + "?key=" + String(googleCloudApiKey) + " HTTP/1.1\r\n" + "Host: speech.googleapis.com\r\n" + "Content-Type: application/json\r\n" + "Content-Length: " + contentLength + "\r\n\r\n" + requestBody;
+  String request = "POST " + String(googleCloudEndpoint) + "?key=" + String(googleCloudApiKey) + " HTTP/1.1\r\n" + "Host: " + server + "\r\n" + "Content-Type: application/json\r\n" + "Content-Length: " + contentLength + "\r\n\r\n" + requestBody;
 
+  // Send the request
+  Serial.println("Sending request:");
   Serial.println(request);
   client.print(request);
 
+  // Receive and process the response
   String response = "";
   unsigned long timeout = millis();
   while (client.connected()) {
@@ -306,11 +324,17 @@ String callGoogleSpeechApi(String base64Audio) {
     }
   }
 
+  // Print response information
   if (response.length() == 0) {
     Serial.println("Failed to get response from Google Cloud API");
   } else {
     Serial.println("Response length: " + String(response.length()));
+    Serial.println("Response content:");
+    Serial.println(response);
   }
+
+  // Close the connection
+  client.stop();
 
   return response;
 }
